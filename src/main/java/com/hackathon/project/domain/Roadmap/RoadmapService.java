@@ -254,7 +254,8 @@ public class RoadmapService {
         String priority = "선택";
         if (summary != null && summary.getCourseType() != null) {
             String normalized = summary.getCourseType().toLowerCase(Locale.ROOT);
-            if (normalized.contains("필수") || normalized.contains("전필") || normalized.contains("공필")) {
+            if (normalized.contains("필수") || normalized.contains("전필") || normalized.contains(
+                "공필")) {
                 priority = "필수";
             }
         }
@@ -268,28 +269,52 @@ public class RoadmapService {
     }
 
     public ExcelParseResponseDTO convertExcelParseResponseDTO(List<ExcelParseDTO> excelParseDTOS) {
-        double totalMajorCredits = 0.0;
         double totalCredits = 0.0;
+        double totalMajorCredits = 0.0;
         double totalGradePoints = 0.0;
         double pnp = 0.0;
+        double totalF = 0.0;
+
         for (ExcelParseDTO parseDTO : excelParseDTOS) {
-            totalCredits += parseDTO.getCredits();
-            if (parseDTO.getCourseType().contains("전")) {
-                totalMajorCredits += parseDTO.getCredits();
+            String grade = parseDTO.getGrade();
+
+            // 3. F 학점은 totalCredits에는 포함되지만 점수는 0점 (GPA를 깎아먹는 요인)
+            // startsWith("F") 블록이 비어있어도 아래에서 credits와 gradePoints(0)가 더해지므로 로직상 정상입니다.
+            if (grade.startsWith("F")) {
+                // 명시적으로 무언가를 할 필요는 없으나, 가독성을 위해 남겨둠
+                totalF += parseDTO.getCredits();
             }
-            if (parseDTO.getEvaluationType().contains("P")) {
+
+            // 1. NP는 학점 계산에서 완전히 제외 (94학점에 미포함)
+            if (grade.startsWith("NP")) {
+                continue;
+            }
+
+            // 2. P 학점은 별도로 합산 (나중에 GPA 분모에서 제외하기 위함)
+            if (grade.startsWith("P")) {
                 pnp += parseDTO.getCredits();
             }
 
+            // 공통: 학점 합산 (P, F, 일반성적 모두 포함하여 94.0학점)
+            totalCredits += parseDTO.getCredits();
+
+            if (parseDTO.getCourseType().contains("전")) {
+                totalMajorCredits += parseDTO.getCredits();
+            }
+
+            // 성적 총점 합산 (F와 P는 gradePoint가 0이므로 결과에 영향을 주지 않음)
             totalGradePoints += parseDTO.getGradePoint() * parseDTO.getCredits();
         }
 
+// 4. 최종 GPA 계산 (중요: pnp 학점을 제외한 학점으로 나눔)
+        double gpaDenominator = totalCredits - pnp; // 94.0 - 6.0 = 88.0
+        double averageGPA = (gpaDenominator > 0) ? totalGradePoints / gpaDenominator : 0.0;
         return ExcelParseResponseDTO.builder()
             .courses(excelParseDTOS)
-            .totalCredits(totalCredits)
+            .totalCredits(totalCredits - totalF)
             .totalMajorCredits(totalMajorCredits)
             .totalGeneralCredits(totalCredits - totalMajorCredits)
-            .averageGPA(totalGradePoints / (totalCredits - pnp))
+            .averageGPA(averageGPA)
             .build();
     }
 }

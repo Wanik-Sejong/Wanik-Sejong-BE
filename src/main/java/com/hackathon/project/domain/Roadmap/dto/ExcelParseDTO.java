@@ -7,6 +7,8 @@ import lombok.Getter;
 @Builder
 public class ExcelParseDTO {
 
+    private int completedYear;       // 이수년도
+    private int completedSemester;   // 이수학기
     private String courseCode;       // 학수번호
     private String courseName;       // 교과목명
     private String courseType;       // 이수구분

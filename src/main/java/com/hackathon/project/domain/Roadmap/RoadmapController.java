@@ -4,6 +4,8 @@ import com.hackathon.project.domain.Roadmap.dto.ExcelParseDTO;
 import com.hackathon.project.domain.Roadmap.dto.ExcelParseResponseDTO;
 import com.hackathon.project.domain.Roadmap.dto.RoadmapAiResponseDTO;
 import com.hackathon.project.domain.Roadmap.dto.RoadmapCreateRequestDTO;
+import com.hackathon.project.domain.Roadmap.dto.WeightHintRequestDTO;
+import com.hackathon.project.domain.Roadmap.dto.WeightHintResponseDTO;
 import com.hackathon.project.global.dto.ApiResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class RoadmapController {
 
     private final RoadmapService roadmapService;
+    private final WeightHintService weightHintService;
 
     @PostMapping(
         value = "/parse-excel",
@@ -43,5 +46,15 @@ public class RoadmapController {
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.success(roadmap));
+    }
+
+    @PostMapping("/weight-hints")
+    public ResponseEntity<ApiResponse<WeightHintResponseDTO>> weightHints(
+        @RequestBody WeightHintRequestDTO requestDTO) {
+        WeightHintResponseDTO response =
+            weightHintService.buildWeightHints(requestDTO.getCareerText());
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(ApiResponse.success(response));
     }
 }

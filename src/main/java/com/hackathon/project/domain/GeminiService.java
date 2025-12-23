@@ -2,10 +2,12 @@ package com.hackathon.project.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hackathon.project.domain.Roadmap.dto.RoadmapAiResponseDTO;
-import com.hackathon.project.domain.Roadmap.dto.RoadmapCreateRequestDTO;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import com.hackathon.project.domain.Roadmap.dto.RoadmapAiResponseDTO;
+import com.hackathon.project.domain.Roadmap.dto.RoadmapCreateRequestDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,24 +46,33 @@ public class GeminiService {
 
     private RoadmapAiResponseDTO parseRoadmapResponse(String responseBody) throws Exception {
         JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode errorNode = root.path("error");
+        if (!errorNode.isMissingNode() && !errorNode.isNull()) {
+            String message = errorNode.path("message").asText("Gemini API 오류 응답");
+            throw new IllegalStateException(message);
+        }
 
         JsonNode candidates = root.path("candidates");
         if (!candidates.isArray() || candidates.isEmpty()) {
             throw new IllegalStateException("Gemini 응답에 candidates가 없습니다.");
         }
 
-        JsonNode textNode =
-            candidates.get(0)
-                .path("content")
-                .path("parts")
-                .path(0)
-                .path("text");
+        JsonNode parts = candidates.get(0).path("content").path("parts");
+        String rawText = null;
+        if (parts.isArray()) {
+            for (JsonNode part : parts) {
+                JsonNode textNode = part.get("text");
+                if (textNode != null && !textNode.isNull()) {
+                    rawText = textNode.asText("");
+                    break;
+                }
+            }
+        }
 
-        if (textNode.isMissingNode() || textNode.isNull()) {
+        if (rawText == null || rawText.isBlank()) {
             throw new IllegalStateException("Gemini 응답에 text가 없습니다.");
         }
 
-        String rawText = textNode.asText("");
         String cleaned = extractJsonPayload(rawText);
 
         return objectMapper.readValue(cleaned, RoadmapAiResponseDTO.class);
@@ -100,6 +111,9 @@ public class GeminiService {
                                 Map.of("text", prompt)
                             )
                         )
+                    ),
+                    "generationConfig", Map.of(
+                        "responseMimeType", "application/json"
                     )
                 )
             );
@@ -126,36 +140,49 @@ public class GeminiService {
     // Prompt
     // =========================
     private String buildPrompt(RoadmapCreateRequestDTO requestDTO) {
+        String termContext = buildTermContext();
         return """
             너는 대학생 진로·수강 로드맵을 생성하는 시스템이다.
             아래 정보를 바탕으로 현실적이고 구체적인 로드맵을 생성하라.
             
             [학생 정보]
-            - 희망 진로: %s
-            - 관심 분야: %s
+            - 희망 진로/관심/추가 정보(문장): %s
             - 평균 GPA: %.2f
-            - 총 이수 학점: %d
+            - 총 이수 학점: %.1f
             - 전공 학점: %d
             
             [이수 과목]
+            %s
+
+            [학기 기준]
             %s
             
             출력 형식:
             - 아래 JSON 스키마에 맞춰 순수 JSON 문자열만 반환하라.
             - 코드블록, 설명 문장, 주석을 포함하지 말 것.
+            - [이수 과목]에 있는 과목은 coursePlan.courses에 포함하지 말 것.
+            - coursePlan에는 교과목 추천만, extracurricularPlan에는 교외활동/자기주도 학습만 작성하라.
+            - period는 [학기 기준]의 순서를 그대로 사용하라.
             {
               "careerSummary": "string",
               "currentSkills": {
                 "strengths": ["string"],
                 "gaps": ["string"]
               },
-              "learningPath": [
+              "coursePlan": [
                 {
                   "period": "string",
                   "goal": "string",
                   "courses": [
                     {"name": "string", "type": "string", "reason": "string", "priority": "필수/선택", "prerequisites": ["string"]}
                   ],
+                  "effort": "string"
+                }
+              ],
+              "extracurricularPlan": [
+                {
+                  "period": "string",
+                  "goal": "string",
                   "activities": ["string"],
                   "effort": "string"
                 }
@@ -164,12 +191,100 @@ public class GeminiService {
               "generatedAt": "YYYY-MM-DD"
             }
             """.formatted(
-            requestDTO.getCareerGoal().getCareerPath(),
-            requestDTO.getCareerGoal().getInterests(),
+            requestDTO.getCareerGoal(),
             requestDTO.getTranscript().getAverageGPA(),
             requestDTO.getTranscript().getTotalCredits(),
             requestDTO.getTranscript().getTotalMajorCredits(),
-            requestDTO.getTranscript().getCourses()
+            buildCompletedCoursesText(requestDTO),
+            termContext
         );
+    }
+
+    private String buildCompletedCoursesText(RoadmapCreateRequestDTO requestDTO) {
+        if (requestDTO == null || requestDTO.getTranscript() == null) {
+            return "- 없음";
+        }
+        List<RoadmapCreateRequestDTO.Course> courses = requestDTO.getTranscript().getCourses();
+        if (courses == null || courses.isEmpty()) {
+            return "- 없음";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (RoadmapCreateRequestDTO.Course course : courses) {
+            if (course == null) {
+                continue;
+            }
+            String code = course.getCourseCode();
+            String name = course.getCourseName();
+            if ((code == null || code.isBlank()) && (name == null || name.isBlank())) {
+                continue;
+            }
+            sb.append("- ");
+            if (name != null && !name.isBlank()) {
+                sb.append(name.trim());
+            }
+            if (code != null && !code.isBlank()) {
+                if (sb.charAt(sb.length() - 1) != ' ') {
+                    sb.append(' ');
+                }
+                sb.append('(').append(code.trim()).append(')');
+            }
+            sb.append('\n');
+        }
+        if (sb.length() == 0) {
+            return "- 없음";
+        }
+        return sb.toString().trim();
+    }
+
+    private String buildTermContext() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        int year = today.getYear();
+        int month = today.getMonthValue();
+
+        List<String> terms;
+        if (month >= 3 && month <= 4) {
+            terms = List.of(
+                "%d 1학기".formatted(year),
+                "%d 여름학기".formatted(year),
+                "%d 2학기".formatted(year),
+                "%d 겨울학기".formatted(year)
+            );
+        } else if (month >= 5 && month <= 6) {
+            terms = List.of(
+                "%d 여름학기".formatted(year),
+                "%d 2학기".formatted(year),
+                "%d 겨울학기".formatted(year),
+                "%d 1학기".formatted(year + 1)
+            );
+        } else if (month >= 7 && month <= 8) {
+            terms = List.of(
+                "%d 2학기".formatted(year),
+                "%d 겨울학기".formatted(year),
+                "%d 1학기".formatted(year + 1),
+                "%d 여름학기".formatted(year + 1)
+            );
+        } else if (month >= 9) {
+            terms = List.of(
+                "%d 겨울학기".formatted(year + 1),
+                "%d 1학기".formatted(year + 1),
+                "%d 여름학기".formatted(year + 1),
+                "%d 2학기".formatted(year + 1)
+            );
+        } else {
+            terms = List.of(
+                "%d 1학기".formatted(year),
+                "%d 여름학기".formatted(year),
+                "%d 2학기".formatted(year),
+                "%d 겨울학기".formatted(year)
+            );
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("- 오늘 날짜: ").append(today).append('\n');
+        sb.append("- 다음 학기 순서:\n");
+        for (String term : terms) {
+            sb.append("  - ").append(term).append('\n');
+        }
+        return sb.toString().trim();
     }
 }

@@ -1,0 +1,51 @@
+package com.hackathon.project.domain.Roadmap;
+
+import com.hackathon.project.domain.Roadmap.dto.ExcelParseDTO;
+import com.hackathon.project.domain.Roadmap.dto.ExcelParseResponseDTO;
+import com.hackathon.project.domain.Roadmap.dto.RoadmapAiResponseDTO;
+import com.hackathon.project.domain.Roadmap.dto.RoadmapCreateRequestDTO;
+import com.hackathon.project.global.dto.ApiResponse;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class RoadmapController {
+
+    private final RoadmapService roadmapService;
+
+    @PostMapping(
+        value = "/parse-excel",
+        consumes = "multipart/form-data",
+        produces = "application/json"
+    )
+    public ResponseEntity<ApiResponse<ExcelParseResponseDTO>> uploadExcel(
+        @RequestParam("file") MultipartFile file) {
+        List<ExcelParseDTO> excelParseDTOS = roadmapService.parse(file);
+        ExcelParseResponseDTO responseDTO = ExcelParseResponseDTO.builder()
+            .courses(excelParseDTOS)
+            .build();
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(ApiResponse.success(responseDTO));
+    }
+
+    @PostMapping("/generate-roadmap")
+    public ResponseEntity<ApiResponse<RoadmapAiResponseDTO>> generateRoadmap(
+        @RequestBody RoadmapCreateRequestDTO requestDTO) {
+        RoadmapAiResponseDTO roadmap = roadmapService.generateRoadmap(requestDTO);
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(ApiResponse.success(roadmap));
+    }
+}

@@ -34,7 +34,7 @@ public class SubjectRecommendationService {
         Set<String> completedCodes = normalizeCodes(requestDTO.getCompletedCourseCodes());
 
         List<ScoredSubject> scored = new ArrayList<>();
-        for (Subject subject : subjectRepository.findAll()) {
+        for (Subject subject : subjectRepository.findDistinctByCourseName()) {
             if (completedCodes.contains(normalizeCode(subject.getCourseCode()))) {
                 continue;
             }

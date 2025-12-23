@@ -9,4 +9,8 @@ import lombok.Getter;
 public class ExcelParseResponseDTO {
 
     private List<ExcelParseDTO> courses;
+    private double totalCredits;
+    private double totalGeneralCredits;
+    private double totalMajorCredits;
+    private double averageGPA;
 }

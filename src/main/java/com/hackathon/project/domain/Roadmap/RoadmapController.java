@@ -31,13 +31,9 @@ public class RoadmapController {
     public ResponseEntity<ApiResponse<ExcelParseResponseDTO>> uploadExcel(
         @RequestParam("file") MultipartFile file) {
         List<ExcelParseDTO> excelParseDTOS = roadmapService.parse(file);
-        ExcelParseResponseDTO responseDTO = ExcelParseResponseDTO.builder()
-            .courses(excelParseDTOS)
-            .build();
-
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(ApiResponse.success(responseDTO));
+            .body(ApiResponse.success(roadmapService.convertExcelParseResponseDTO(excelParseDTOS)));
     }
 
     @PostMapping("/generate-roadmap")

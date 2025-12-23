@@ -2,6 +2,7 @@ package com.hackathon.project.domain.Roadmap;
 
 import com.hackathon.project.domain.GeminiService;
 import com.hackathon.project.domain.Roadmap.dto.ExcelParseDTO;
+import com.hackathon.project.domain.Roadmap.dto.ExcelParseResponseDTO;
 import com.hackathon.project.domain.Roadmap.dto.RoadmapAiResponseDTO;
 import com.hackathon.project.domain.Roadmap.dto.RoadmapCreateRequestDTO;
 import java.io.IOException;
@@ -92,5 +93,31 @@ public class RoadmapService {
 
     public RoadmapAiResponseDTO generateRoadmap(RoadmapCreateRequestDTO requestDTO) {
         return geminiService.askRoadMap(requestDTO);
+    }
+
+    public ExcelParseResponseDTO convertExcelParseResponseDTO(List<ExcelParseDTO> excelParseDTOS) {
+        double totalMajorCredits = 0.0;
+        double totalCredits = 0.0;
+        double totalGradePoints = 0.0;
+        double pnp = 0.0;
+        for (ExcelParseDTO parseDTO : excelParseDTOS) {
+            totalCredits += parseDTO.getCredits();
+            if (parseDTO.getCourseType().contains("전")) {
+                totalMajorCredits += parseDTO.getCredits();
+            }
+            if (parseDTO.getEvaluationType().contains("P")) {
+                pnp += parseDTO.getCredits();
+            }
+
+            totalGradePoints += parseDTO.getGradePoint() * parseDTO.getCredits();
+        }
+
+        return ExcelParseResponseDTO.builder()
+            .courses(excelParseDTOS)
+            .totalCredits(totalCredits)
+            .totalMajorCredits(totalMajorCredits)
+            .totalGeneralCredits(totalCredits - totalMajorCredits)
+            .averageGPA(totalGradePoints / (totalCredits - pnp))
+            .build();
     }
 }

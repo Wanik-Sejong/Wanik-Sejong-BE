@@ -14,6 +14,7 @@ public class RoadmapAiResponseDTO {
     private CurrentSkills currentSkills;
     private List<CoursePlan> coursePlan;
     private List<ExtracurricularPlan> extracurricularPlan;
+    private List<String> recommendedTechStack;
     private String advice;
     private String generatedAt;
     private SubjectScoreResponseDTO subjectRecommendations;

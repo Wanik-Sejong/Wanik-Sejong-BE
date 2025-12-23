@@ -256,6 +256,7 @@ public class GeminiService {
             - [이수 과목]에 있는 과목은 coursePlan.courses에 포함하지 말 것.
             - coursePlan에는 교과목 추천만, extracurricularPlan에는 교외활동/자기주도 학습만 작성하라.
             - period는 [학기 기준]의 순서를 그대로 사용하라.
+            - recommendedTechStack은 목표 직무에 맞는 핵심 기술 스택을 6~10개 내외로 제시하라.
             {
               "careerSummary": "string",
               "currentSkills": {
@@ -280,6 +281,7 @@ public class GeminiService {
                   "effort": "string"
                 }
               ],
+              "recommendedTechStack": ["string"],
               "advice": "string",
               "generatedAt": "YYYY-MM-DD"
             }

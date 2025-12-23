@@ -1,7 +1,10 @@
 package com.hackathon.project.domain;
 
+import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -30,7 +33,15 @@ public class GeminiService {
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private final ObjectMapper lenientObjectMapper = JsonMapper.builder()
+        .enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
+        .enable(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)
+        .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
+        .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .build();
 
     public RoadmapAiResponseDTO askRoadMap(RoadmapCreateRequestDTO requestDTO) {
         String responseBody = null;
@@ -74,8 +85,12 @@ public class GeminiService {
         }
 
         String cleaned = extractJsonPayload(rawText);
-
-        return objectMapper.readValue(cleaned, RoadmapAiResponseDTO.class);
+        try {
+            return objectMapper.readValue(cleaned, RoadmapAiResponseDTO.class);
+        } catch (Exception strictEx) {
+            String sanitized = sanitizeJson(cleaned);
+            return lenientObjectMapper.readValue(sanitized, RoadmapAiResponseDTO.class);
+        }
     }
 
     private String extractJsonPayload(String text) {
@@ -95,6 +110,18 @@ public class GeminiService {
         }
 
         return cleaned;
+    }
+
+    private String sanitizeJson(String json) {
+        if (json == null) {
+            return "";
+        }
+        String sanitized = json
+            .replace('\u201C', '"')
+            .replace('\u201D', '"')
+            .replace('\u2018', '\'')
+            .replace('\u2019', '\'');
+        return sanitized.replaceAll("[\\u0000-\\u001F&&[^\\r\\n\\t]]", "");
     }
 
     private String callGeminiApi(String prompt) {

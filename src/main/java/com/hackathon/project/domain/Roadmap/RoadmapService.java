@@ -44,7 +44,7 @@ public class RoadmapService {
                     .courseType(getString(row.getCell(5)))        // 이수구분
                     .teachingArea(getString(row.getCell(6)))      // 교직영역
                     .selectedArea(getString(row.getCell(7)))      // 선택영역
-                    .credits(getInt(row.getCell(8)))               // 학점
+                    .credits(getDouble(row.getCell(8)))               // 학점
                     .evaluationType(getString(row.getCell(9)))    // 평가방식
                     .grade(getString(row.getCell(10)))             // 등급
                     .gradePoint(getDouble(row.getCell(11)))        // 평점
@@ -72,21 +72,6 @@ public class RoadmapService {
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
             case FORMULA -> cell.getCellFormula();
             default -> null;
-        };
-    }
-
-    private int getInt(Cell cell) {
-        if (cell == null) {
-            return 0;
-        }
-
-        return switch (cell.getCellType()) {
-            case NUMERIC -> (int) cell.getNumericCellValue();
-            case STRING -> {
-                String value = cell.getStringCellValue().trim();
-                yield value.isEmpty() ? 0 : Integer.parseInt(value);
-            }
-            default -> 0;
         };
     }
 

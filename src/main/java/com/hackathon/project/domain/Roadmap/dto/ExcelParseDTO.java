@@ -12,7 +12,7 @@ public class ExcelParseDTO {
     private String courseType;       // 이수구분
     private String teachingArea;     // 교직영역
     private String selectedArea;     // 선택영역
-    private int credits;             // 학점
+    private double credits;             // 학점
     private String evaluationType;   // 평가방식
     private String grade;            // 등급
     private double gradePoint;       // 평점

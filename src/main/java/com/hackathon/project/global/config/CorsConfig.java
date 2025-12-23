@@ -16,7 +16,8 @@ public class CorsConfig {
 
         config.setAllowedOrigins(List.of(
             "https://hackathon.yeo-li.com",
-            "http://localhost:3000"
+            "http://localhost:3000",
+            "https://wanik-sejong.vercel.app/"
         ));
         config.setAllowedMethods(List.of(
             "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
